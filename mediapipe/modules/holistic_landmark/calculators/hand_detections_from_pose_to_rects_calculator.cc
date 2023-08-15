@@ -75,6 +75,14 @@ constexpr char kImageSizeTag[] = "IMAGE_SIZE";
   return ::absl::OkStatus();
 }
 
+struct Point {
+    float x, y;
+}
+
+inline Point GetAbsoluteKeypoint(const LocationData::RelativeKeypoint& keypoint, const std::pair<int, int>& image_size){
+    return {keypoint.x() * image_size.first, keypoint.y() * image_size.second};
+}
+
 ::absl::Status
 HandDetectionsFromPoseToRectsCalculator ::DetectionToNormalizedRect(
     const Detection& detection, const DetectionSpec& detection_spec,
@@ -83,40 +91,17 @@ HandDetectionsFromPoseToRectsCalculator ::DetectionToNormalizedRect(
   const auto& image_size = detection_spec.image_size;
   RET_CHECK(image_size) << "Image size is required to calculate rotation";
 
-  const float x_wrist =
-      location_data.relative_keypoints(kWrist).x() * image_size->first;
-  const float y_wrist =
-      location_data.relative_keypoints(kWrist).y() * image_size->second;
+  Point wrist  = GetAbsoluteKeypoint(location_data.relative_keypoints(kWrist), *detection_spec.image_size);
+  Point index = GetAbsoluteKeypoint(location_data.relative_keypoints(kIndex), *detection_spec.image_size);
+  Point pinky = GetAbsoluteKeypoint(location_data.relative_keypoints(kPinky), *detection_spec.image_size);
+  Point middle = {(2.f * index.x + pinky.x) / 3.f, (2.f * index.y + pinky.y) / 3.f};
 
-  const float x_index =
-      location_data.relative_keypoints(kIndex).x() * image_size->first;
-  const float y_index =
-      location_data.relative_keypoints(kIndex).y() * image_size->second;
+  float box_size = 2.0 * CalculateDistance(middle, wrist);
 
-  const float x_pinky =
-      location_data.relative_keypoints(kPinky).x() * image_size->first;
-  const float y_pinky =
-      location_data.relative_keypoints(kPinky).y() * image_size->second;
-
-  // Estimate middle finger.
-  const float x_middle = (2.f * x_index + x_pinky) / 3.f;
-  const float y_middle = (2.f * y_index + y_pinky) / 3.f;
-
-  // Crop center as middle finger.
-  const float center_x = x_middle;
-  const float center_y = y_middle;
-
-  // Bounding box size as double distance from middle finger to wrist.
-  const float box_size =
-      std::sqrt((x_middle - x_wrist) * (x_middle - x_wrist) +
-                (y_middle - y_wrist) * (y_middle - y_wrist)) *
-      2.0;
-
-  // Set resulting bounding box.
-  rect->set_x_center(center_x / image_size->first);
-  rect->set_y_center(center_y / image_size->second);
-  rect->set_width(box_size / image_size->first);
-  rect->set_height(box_size / image_size->second);
+  rect->set_x_center(middle.x / detection_spec.image_size->first);
+  rect->set_y_center(middle.y / detection_spec.image_size->second);
+  rect->set_width(box_size / detection_spec.image_size->first);
+  rect->set_height(box_size / detection_spec.image_size->second);
 
   return ::absl::OkStatus();
 }
@@ -128,27 +113,12 @@ absl::Status HandDetectionsFromPoseToRectsCalculator::ComputeRotation(
   const auto& image_size = detection_spec.image_size;
   RET_CHECK(image_size) << "Image size is required to calculate rotation";
 
-  const float x_wrist =
-      location_data.relative_keypoints(kWrist).x() * image_size->first;
-  const float y_wrist =
-      location_data.relative_keypoints(kWrist).y() * image_size->second;
+  Point wrist = GetAbsoluteKeypoint(location_data.relative_keypoints(kWrist), *detection_spec.image_size);
+  Point index = GetAbsoluteKeypoint(location_data.relative_keypoints(kIndex), *detection_spec.image_size);
+  Point pinky = GetAbsoluteKeypoint(location_data.relative_keypoints(kPinky), *detection_spec.image_size);
+  Point middle = {(2.f * index.x + pinky.x) / 3.f, (2.f * index.y + pinky.y) / 3.f};
 
-  const float x_index =
-      location_data.relative_keypoints(kIndex).x() * image_size->first;
-  const float y_index =
-      location_data.relative_keypoints(kIndex).y() * image_size->second;
-
-  const float x_pinky =
-      location_data.relative_keypoints(kPinky).x() * image_size->first;
-  const float y_pinky =
-      location_data.relative_keypoints(kPinky).y() * image_size->second;
-
-  // Estimate middle finger.
-  const float x_middle = (2.f * x_index + x_pinky) / 3.f;
-  const float y_middle = (2.f * y_index + y_pinky) / 3.f;
-
-  *rotation = NormalizeRadians(
-      target_angle_ - std::atan2(-(y_middle - y_wrist), x_middle - x_wrist));
+  *rotation = NormalizeRadians(target_angle_ - std::atan2(-(middle.y - wrist.y), middle.x - wrist.x));
 
   return ::absl::OkStatus();
 }
