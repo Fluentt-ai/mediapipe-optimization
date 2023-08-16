@@ -77,10 +77,14 @@ constexpr char kImageSizeTag[] = "IMAGE_SIZE";
 
 struct Point {
     float x, y;
-}
+};
 
 inline Point GetAbsoluteKeypoint(const LocationData::RelativeKeypoint& keypoint, const std::pair<int, int>& image_size){
     return {keypoint.x() * image_size.first, keypoint.y() * image_size.second};
+}
+
+float CalculateDistance(const Point& a, const Point& b) {
+    return std::sqrt(std::pow(b.x - a.x, 2) + std::pow(b.y - a.y, 2));
 }
 
 ::absl::Status

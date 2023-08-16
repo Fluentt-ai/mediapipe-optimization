@@ -47,6 +47,16 @@ inline float NormalizeRadians(float angle) {
   return angle - 2 * M_PI * std::floor((angle - (-M_PI)) / (2 * M_PI));
 }
 
+
+
+std::pair<float, float> RotatePoint(float x, float y, float angle) {
+  return std::make_pair(
+      x * std::cos(angle) - y * std::sin(angle),
+      x * std::sin(angle) + y * std::cos(angle)
+  );
+}
+
+
 float ComputeRotation(const NormalizedLandmarkList& landmarks,
                       const std::pair<int, int>& image_size) {
   const float x0 = landmarks.landmark(kWristJoint).x() * image_size.first;
@@ -68,58 +78,81 @@ float ComputeRotation(const NormalizedLandmarkList& landmarks,
   return rotation;
 }
 
+void ComputeBoundaries(
+    const NormalizedLandmarkList& landmarks, float& min_x, float& max_x,
+    float& min_y, float& max_y, const std::pair<int, int>& image_size = {1, 1}, 
+    float rotation = 0.0f, float center_x_offset = 0.0f, float center_y_offset = 0.0f) {
+  for (int i = 0; i < landmarks.landmark_size(); ++i) {
+    float x = landmarks.landmark(i).x() * image_size.first - center_x_offset;
+    float y = landmarks.landmark(i).y() * image_size.second - center_y_offset;
+
+    if (rotation != 0.0f) {
+      std::tie(x, y) = RotatePoint(x, y, rotation);
+    }
+
+    max_x = std::max(max_x, x);
+    max_y = std::max(max_y, y);
+    min_x = std::min(min_x, x);
+    min_y = std::min(min_y, y);
+  }
+}
+
 absl::Status NormalizedLandmarkListToRect(
     const NormalizedLandmarkList& landmarks,
     const std::pair<int, int>& image_size, NormalizedRect* rect) {
+  
   const float rotation = ComputeRotation(landmarks, image_size);
   const float reverse_angle = NormalizeRadians(-rotation);
+  const float cos_reverse = std::cos(reverse_angle);
+  const float sin_reverse = std::sin(reverse_angle);
 
-  // Find boundaries of landmarks.
-  float max_x = std::numeric_limits<float>::min();
-  float max_y = std::numeric_limits<float>::min();
-  float min_x = std::numeric_limits<float>::max();
-  float min_y = std::numeric_limits<float>::max();
+  float axis_aligned_min_x = std::numeric_limits<float>::max();
+  float axis_aligned_min_y = std::numeric_limits<float>::max();
+  float axis_aligned_max_x = std::numeric_limits<float>::min();
+  float axis_aligned_max_y = std::numeric_limits<float>::min();
+
+  float rotated_min_x = std::numeric_limits<float>::max();
+  float rotated_min_y = std::numeric_limits<float>::max();
+  float rotated_max_x = std::numeric_limits<float>::min();
+  float rotated_max_y = std::numeric_limits<float>::min();
+
   for (int i = 0; i < landmarks.landmark_size(); ++i) {
-    max_x = std::max(max_x, landmarks.landmark(i).x());
-    max_y = std::max(max_y, landmarks.landmark(i).y());
-    min_x = std::min(min_x, landmarks.landmark(i).x());
-    min_y = std::min(min_y, landmarks.landmark(i).y());
+    float x = landmarks.landmark(i).x();
+    float y = landmarks.landmark(i).y();
+
+    axis_aligned_max_x = std::max(axis_aligned_max_x, x);
+    axis_aligned_max_y = std::max(axis_aligned_max_y, y);
+    axis_aligned_min_x = std::min(axis_aligned_min_x, x);
+    axis_aligned_min_y = std::min(axis_aligned_min_y, y);
+
+    // Calculate the rotated coordinates.
+    float dx = (x - (axis_aligned_max_x + axis_aligned_min_x) / 2.0f) * image_size.first;
+    float dy = (y - (axis_aligned_max_y + axis_aligned_min_y) / 2.0f) * image_size.second;
+
+    float rotated_x = dx * cos_reverse - dy * sin_reverse;
+    float rotated_y = dx * sin_reverse + dy * cos_reverse;
+
+    rotated_max_x = std::max(rotated_max_x, rotated_x);
+    rotated_max_y = std::max(rotated_max_y, rotated_y);
+    rotated_min_x = std::min(rotated_min_x, rotated_x);
+    rotated_min_y = std::min(rotated_min_y, rotated_y);
   }
-  const float axis_aligned_center_x = (max_x + min_x) / 2.f;
-  const float axis_aligned_center_y = (max_y + min_y) / 2.f;
 
-  // Find boundaries of rotated landmarks.
-  max_x = std::numeric_limits<float>::min();
-  max_y = std::numeric_limits<float>::min();
-  min_x = std::numeric_limits<float>::max();
-  min_y = std::numeric_limits<float>::max();
-  for (int i = 0; i < landmarks.landmark_size(); ++i) {
-    const float original_x =
-        (landmarks.landmark(i).x() - axis_aligned_center_x) * image_size.first;
-    const float original_y =
-        (landmarks.landmark(i).y() - axis_aligned_center_y) * image_size.second;
+  float rotated_center_x = (rotated_max_x + rotated_min_x) / 2.0f;
+  float rotated_center_y = (rotated_max_y + rotated_min_y) / 2.0f;
 
-    const float projected_x = original_x * std::cos(reverse_angle) -
-                              original_y * std::sin(reverse_angle);
-    const float projected_y = original_x * std::sin(reverse_angle) +
-                              original_y * std::cos(reverse_angle);
+  const float cos_rot = std::cos(rotation);
+  const float sin_rot = std::sin(rotation);
+  
+  const float center_x = rotated_center_x * cos_rot -
+                         rotated_center_y * sin_rot +
+                         image_size.first * (axis_aligned_max_x + axis_aligned_min_x) / 2.0f;
+  const float center_y = rotated_center_x * sin_rot +
+                         rotated_center_y * cos_rot +
+                         image_size.second * (axis_aligned_max_y + axis_aligned_min_y) / 2.0f;
 
-    max_x = std::max(max_x, projected_x);
-    max_y = std::max(max_y, projected_y);
-    min_x = std::min(min_x, projected_x);
-    min_y = std::min(min_y, projected_y);
-  }
-  const float projected_center_x = (max_x + min_x) / 2.f;
-  const float projected_center_y = (max_y + min_y) / 2.f;
-
-  const float center_x = projected_center_x * std::cos(rotation) -
-                         projected_center_y * std::sin(rotation) +
-                         image_size.first * axis_aligned_center_x;
-  const float center_y = projected_center_x * std::sin(rotation) +
-                         projected_center_y * std::cos(rotation) +
-                         image_size.second * axis_aligned_center_y;
-  const float width = (max_x - min_x) / image_size.first;
-  const float height = (max_y - min_y) / image_size.second;
+  const float width = (rotated_max_x - rotated_min_x) / image_size.first;
+  const float height = (rotated_max_y - rotated_min_y) / image_size.second;
 
   rect->set_x_center(center_x / image_size.first);
   rect->set_y_center(center_y / image_size.second);
@@ -129,6 +162,7 @@ absl::Status NormalizedLandmarkListToRect(
 
   return absl::OkStatus();
 }
+
 
 }  // namespace
 

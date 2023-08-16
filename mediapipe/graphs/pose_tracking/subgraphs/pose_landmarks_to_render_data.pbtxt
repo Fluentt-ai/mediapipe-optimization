@@ -31,7 +31,7 @@ node {
   output_stream: "visible_pose_landmarks"
   node_options: {
     [type.googleapis.com/mediapipe.SplitVectorCalculatorOptions] {
-      ranges: { begin: 0 end: 25 }
+      ranges: { begin: 0 end: 22 }
     }
   }
 }
@@ -89,31 +89,31 @@ node {
       landmark_connections: 18
       landmark_connections: 20
       landmark_connections: 11
-      landmark_connections: 23
+      #landmark_connections: 23
       landmark_connections: 12
-      landmark_connections: 24
-      landmark_connections: 23
-      landmark_connections: 24
-      landmark_connections: 23
-      landmark_connections: 25
-      landmark_connections: 24
-      landmark_connections: 26
-      landmark_connections: 25
-      landmark_connections: 27
-      landmark_connections: 26
-      landmark_connections: 28
-      landmark_connections: 27
-      landmark_connections: 29
-      landmark_connections: 28
-      landmark_connections: 30
-      landmark_connections: 29
-      landmark_connections: 31
-      landmark_connections: 30
-      landmark_connections: 32
-      landmark_connections: 27
-      landmark_connections: 31
-      landmark_connections: 28
-      landmark_connections: 32
+      # landmark_connections: 24
+      # landmark_connections: 23
+      # landmark_connections: 24
+      # landmark_connections: 23
+      # landmark_connections: 25
+      # landmark_connections: 24
+      # landmark_connections: 26
+      # landmark_connections: 25
+      # landmark_connections: 27
+      # landmark_connections: 26
+      # landmark_connections: 28
+      # landmark_connections: 27
+      # landmark_connections: 29
+      # landmark_connections: 28
+      # landmark_connections: 30
+      # landmark_connections: 29
+      # landmark_connections: 31
+      # landmark_connections: 30
+      # landmark_connections: 32
+      # landmark_connections: 27
+      # landmark_connections: 31
+      # landmark_connections: 28
+      # landmark_connections: 32
 
       landmark_color { r: 255 g: 255 b: 255 }
       connection_color { r: 255 g: 255 b: 255 }
@@ -141,7 +141,7 @@ node {
       ranges: { begin: 17 end: 18 }
       ranges: { begin: 19 end: 20 }
       ranges: { begin: 21 end: 22 }
-      ranges: { begin: 23 end: 24 }
+      #ranges: { begin: 23 end: 24 }
 
       combine_outputs: true
     }
@@ -163,8 +163,8 @@ node {
       ranges: { begin: 16 end: 17 }
       ranges: { begin: 18 end: 19 }
       ranges: { begin: 20 end: 21 }
-      ranges: { begin: 22 end: 23 }
-      ranges: { begin: 24 end: 25 }
+      #ranges: { begin: 22 end: 23 }
+      #ranges: { begin: 24 end: 25 }
 
       combine_outputs: true
     }
