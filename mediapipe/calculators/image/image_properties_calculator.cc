@@ -53,10 +53,6 @@ class ImagePropertiesCalculator : public Node {
  public:
   static constexpr Input<
       OneOf<mediapipe::Image, mediapipe::ImageFrame>>::Optional kIn{"IMAGE"};
-  // IMAGE_CPU, dedicated to ImageFrame input, is only needed in some top-level
-  // graphs for the Python Solution APIs to figure out the type of input stream
-  // without running into ambiguities from IMAGE.
-  // TODO: Remove IMAGE_CPU once Python Solution APIs adopt Image.
   static constexpr Input<mediapipe::ImageFrame>::Optional kInCpu{"IMAGE_CPU"};
   static constexpr Input<GpuBuffer>::Optional kInGpu{"IMAGE_GPU"};
   static constexpr Output<std::pair<int, int>> kOut{"SIZE"};
@@ -67,9 +63,7 @@ class ImagePropertiesCalculator : public Node {
     RET_CHECK_EQ(kIn(cc).IsConnected() + kInCpu(cc).IsConnected() +
                      kInGpu(cc).IsConnected(),
                  1)
-        << "One and only one of IMAGE, IMAGE_CPU and IMAGE_GPU input is "
-           "expected.";
-
+        << "One and only one of IMAGE, IMAGE_CPU, and IMAGE_GPU input is expected.";
     return absl::OkStatus();
   }
 
@@ -86,27 +80,21 @@ class ImagePropertiesCalculator : public Node {
             size.first = value.Width();
             size.second = value.Height();
           });
-    }
-    if (kInCpu(cc).IsConnected()) {
+      kOut(cc).Send(size);
+    } 
+    else if (kInCpu(cc).IsConnected()) {
       const auto& image = *kInCpu(cc);
-      size.first = image.Width();
-      size.second = image.Height();
+      kOut(cc).Send({image.Width(), image.Height()});
     }
 #if !MEDIAPIPE_DISABLE_GPU
-    if (kInGpu(cc).IsConnected()) {
+    else if (kInGpu(cc).IsConnected()) {
       const auto& image = *kInGpu(cc);
-      size.first = image.width();
-      size.second = image.height();
+      kOut(cc).Send({image.width(), image.height()});
     }
 #endif  // !MEDIAPIPE_DISABLE_GPU
-
-    kOut(cc).Send(size);
 
     return absl::OkStatus();
   }
 };
 
 MEDIAPIPE_REGISTER_NODE(ImagePropertiesCalculator);
-
-}  // namespace api2
-}  // namespace mediapipe
