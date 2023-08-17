@@ -25,6 +25,7 @@
 #include "mediapipe/util/render_data.pb.h"
 namespace mediapipe {
 
+
 namespace {
 
 constexpr char kDetectionTag[] = "DETECTION";
@@ -122,22 +123,12 @@ class DetectionsToRenderDataCalculator : public CalculatorBase {
 };
 REGISTER_CALCULATOR(DetectionsToRenderDataCalculator);
 
-inline bool CheckAndSetInputTag(const CalculatorContract* cc, const std::string& tag, const std::type_index& type) {
-    if (cc->Inputs().HasTag(tag)) {
-        cc->Inputs().Tag(tag).Set(type);
-        return true;
-    }
-    return false;
-}
-
-}
-
 absl::Status DetectionsToRenderDataCalculator::GetContract(
     CalculatorContract* cc) {
-  RET_CHECK(CheckAndSetInputTag(cc, kDetectionTag, typeid(Detection)) ||
-              CheckAndSetInputTag(cc, kDetectionListTag, typeid(DetectionList)) ||
-              CheckAndSetInputTag(cc, kDetectionsTag, typeid(std::vector<Detection>)))
-        << "None of the input streams are provided.";
+  RET_CHECK(cc->Inputs().HasTag(kDetectionListTag) ||
+            cc->Inputs().HasTag(kDetectionsTag) ||
+            cc->Inputs().HasTag(kDetectionTag))
+      << "None of the input streams are provided.";
 
 
   if (cc->Inputs().HasTag(kDetectionTag)) {
