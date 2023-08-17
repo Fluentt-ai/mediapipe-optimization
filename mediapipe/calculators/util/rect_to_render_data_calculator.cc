@@ -112,6 +112,9 @@ class RectToRenderDataCalculator : public CalculatorBase {
 
  private:
   RectToRenderDataCalculatorOptions options_;
+
+  template <typename RectType, bool normalized>
+  void AddRectToRenderData(const RectType& rect, RenderData* render_data);
 };
 REGISTER_CALCULATOR(RectToRenderDataCalculator);
 
@@ -155,43 +158,39 @@ absl::Status RectToRenderDataCalculator::Open(CalculatorContext* cc) {
   return absl::OkStatus();
 }
 
+template <typename RectType, bool normalized>
+void RectToRenderDataCalculator::AddRectToRenderData(
+    const RectType& rect, RenderData* render_data) {
+  auto* rectangle = NewRect(options_, render_data);
+  SetRect(normalized, rect.x_center() - rect.width() / 2.f,
+          rect.y_center() - rect.height() / 2.f, rect.width(),
+          rect.height(), rect.rotation(), rectangle);
+}
+
 absl::Status RectToRenderDataCalculator::Process(CalculatorContext* cc) {
   auto render_data = absl::make_unique<RenderData>();
 
-  if (cc->Inputs().HasTag(kNormRectTag) &&
+  if (cc->Inputs().HasTag(kNormRectTag) && 
       !cc->Inputs().Tag(kNormRectTag).IsEmpty()) {
-    const auto& rect = cc->Inputs().Tag(kNormRectTag).Get<NormalizedRect>();
-    auto* rectangle = NewRect(options_, render_data.get());
-    SetRect(/*normalized=*/true, rect.x_center() - rect.width() / 2.f,
-            rect.y_center() - rect.height() / 2.f, rect.width(), rect.height(),
-            rect.rotation(), rectangle);
+    AddRectToRenderData<NormalizedRect, true>(cc->Inputs().Tag(kNormRectTag).Get<NormalizedRect>(), render_data.get());
   }
-  if (cc->Inputs().HasTag(kRectTag) && !cc->Inputs().Tag(kRectTag).IsEmpty()) {
-    const auto& rect = cc->Inputs().Tag(kRectTag).Get<Rect>();
-    auto* rectangle = NewRect(options_, render_data.get());
-    SetRect(/*normalized=*/false, rect.x_center() - rect.width() / 2.f,
-            rect.y_center() - rect.height() / 2.f, rect.width(), rect.height(),
-            rect.rotation(), rectangle);
+
+  if (cc->Inputs().HasTag(kRectTag) && 
+      !cc->Inputs().Tag(kRectTag).IsEmpty()) {
+    AddRectToRenderData<Rect, false>(cc->Inputs().Tag(kRectTag).Get<Rect>(), render_data.get());
   }
-  if (cc->Inputs().HasTag(kNormRectsTag) &&
+
+  if (cc->Inputs().HasTag(kNormRectsTag) && 
       !cc->Inputs().Tag(kNormRectsTag).IsEmpty()) {
-    const auto& rects =
-        cc->Inputs().Tag(kNormRectsTag).Get<std::vector<NormalizedRect>>();
-    for (auto& rect : rects) {
-      auto* rectangle = NewRect(options_, render_data.get());
-      SetRect(/*normalized=*/true, rect.x_center() - rect.width() / 2.f,
-              rect.y_center() - rect.height() / 2.f, rect.width(),
-              rect.height(), rect.rotation(), rectangle);
+    for (const auto& rect : cc->Inputs().Tag(kNormRectsTag).Get<std::vector<NormalizedRect>>()) {
+      AddRectToRenderData<NormalizedRect, true>(rect, render_data.get());
     }
   }
-  if (cc->Inputs().HasTag(kRectsTag) &&
+
+  if (cc->Inputs().HasTag(kRectsTag) && 
       !cc->Inputs().Tag(kRectsTag).IsEmpty()) {
-    const auto& rects = cc->Inputs().Tag(kRectsTag).Get<std::vector<Rect>>();
-    for (auto& rect : rects) {
-      auto* rectangle = NewRect(options_, render_data.get());
-      SetRect(/*normalized=*/false, rect.x_center() - rect.width() / 2.f,
-              rect.y_center() - rect.height() / 2.f, rect.width(),
-              rect.height(), rect.rotation(), rectangle);
+    for (const auto& rect : cc->Inputs().Tag(kRectsTag).Get<std::vector<Rect>>()) {
+      AddRectToRenderData<Rect, false>(rect, render_data.get());
     }
   }
 
