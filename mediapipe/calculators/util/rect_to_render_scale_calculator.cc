@@ -94,34 +94,24 @@ absl::Status RectToRenderScaleCalculator::Open(CalculatorContext* cc) {
 }
 
 absl::Status RectToRenderScaleCalculator::Process(CalculatorContext* cc) {
-  if (cc->Inputs().Tag(kNormRectTag).IsEmpty()) {
+    float render_scale = options_.multiplier();
+    if (!cc->Inputs().Tag(kNormRectTag).IsEmpty()) {
+        // Get image size and rect once.
+        const auto& imageSize = cc->Inputs().Tag(kImageSizeTag).Get<std::pair<int, int>>();
+        const auto& rect = cc->Inputs().Tag(kNormRectTag).Get<NormalizedRect>();
+
+        // Pre-compute factors.
+        const float imageWidthFactor = rect.width() * imageSize.first;
+        const float imageHeightFactor = rect.height() * imageSize.second;
+
+        render_scale = std::max(imageWidthFactor, imageHeightFactor) * render_scale;
+    }
+
     cc->Outputs()
-        .Tag(kRenderScaleTag)
-        .AddPacket(
-            MakePacket<float>(options_.multiplier()).At(cc->InputTimestamp()));
-    return absl::OkStatus();
-  }
-
-  // Get image size.
-  int image_width;
-  int image_height;
-  std::tie(image_width, image_height) =
-      cc->Inputs().Tag(kImageSizeTag).Get<std::pair<int, int>>();
-
-  // Get rect size in absolute pixel coordinates.
-  const auto& rect = cc->Inputs().Tag(kNormRectTag).Get<NormalizedRect>();
-  const float rect_width = rect.width() * image_width;
-  const float rect_height = rect.height() * image_height;
-
-  // Calculate render scale.
-  const float rect_size = std::max(rect_width, rect_height);
-  const float render_scale = rect_size * options_.multiplier();
-
-  cc->Outputs()
       .Tag(kRenderScaleTag)
       .AddPacket(MakePacket<float>(render_scale).At(cc->InputTimestamp()));
 
-  return absl::OkStatus();
+    return absl::OkStatus();
 }
 
 }  // namespace mediapipe
